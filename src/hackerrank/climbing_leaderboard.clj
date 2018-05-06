@@ -3,9 +3,100 @@
 (def scores [100 100 50 40 40 20 10])
 (def alice [5 25 50 120])
 
+(defn wrong [scores alice]
+  (let [ecila (reverse alice)
+        state (atom {:rslts [[0 ecila]]
+                     :cur-rank 1
+                     :cur-score (first scores)})
+        _ (dorun (map (fn [s]
+                        (when (not= s (:cur-score @state))
+                          (swap! state assoc
+                                 :cur-rank (inc (:cur-rank @state))
+                                 :cur-score s))
+                        (let [partial-ecila (second (last (:rslts @state)))]
+                          (dorun (map-indexed (fn [j a]
+                                                (when (>= a s)
+                                                  (swap! state update-in
+                                                         [:rslts] conj [(:cur-score @state)
+                                                                        (drop (inc j) partial-ecila)])))
+                                              partial-ecila))))
+                      scores))
+        rslt (reverse (mapv first (drop 1 (:rslts @state))))]
+    (if (empty? (second (last (:rslts @state))))
+      rslt
+      (reduce (fn [arr _]
+                (conj arr (+ (first rslt)
+                             (count (second (last (:rslts @state))))
+                             1)))
+              rslt
+              (second (last (:rslts @state)))))))
+
+;; terminated due to timeout on tests-6/7/8/9
+(defn climbingLeaderboard-6 [scores alice]
+  (let [ecila (reverse alice)
+        rslts (atom [[0 ecila]])
+        _ (dorun (map-indexed (fn [i s]
+                                (let [partial-ecila (second (last @rslts))]
+                                  (dorun (map-indexed (fn [j a]
+                                                        (when (>= a s)
+                                                          (swap! rslts conj [(inc i) (drop (inc j) partial-ecila)])))
+                                                      partial-ecila))))
+                              (reverse (into (sorted-set) scores))))
+        rslt (reverse (mapv first (drop 1 @rslts)))]
+    (if (empty? (second (last @rslts)))
+      rslt
+      (reduce (fn [arr _]
+                (conj arr (+ (first rslt)
+                             (count (second (last @rslts)))
+                             1)))
+              rslt
+              (second (last @rslts))))))
+
+;; terminated due to timeout on tests-6/7/8/9
+(defn climbingLeaderboard-5 [scores alice]
+  (let [rslts (atom (list [1 scores]))
+        find-rank (fn [rank arr cur-score a]
+                    (cond
+                      (= cur-score (first arr)) (recur rank (rest arr) cur-score a)
+                      (empty? arr) [rank arr]
+                      (>= a (first arr)) [rank arr]
+                      :else (recur (inc rank) (rest arr) (first arr) a)))]
+    (mapv (fn [a]
+            (let [tmp (first @rslts)
+                  cur-rank (first tmp)
+                  cur-arr (second tmp)
+                  rslt (find-rank cur-rank
+                                  cur-arr
+                                  -1
+                                  a)]
+              (swap! rslts conj rslt)))
+          (reverse alice))
+    (mapv first (drop-last 1 @rslts))))
+
+;; terminated due to timeout on tests-6/7/8/9
+;; why: `into (sorted-set)`
+(defn climbingLeaderboard-4 [scores alice]
+  (let [rslts (atom (list 1))
+        unique-scores (reverse (into (sorted-set) scores))
+        find-rank (fn [rank arr curr a]
+                    (cond
+                      (= curr (first arr)) (recur rank (rest arr) curr a)
+                      (empty? arr) rank
+                      (>= a (first arr)) rank
+                      :else (recur (inc rank) (rest arr) (first arr) a)))]
+    (mapv (fn [a]
+            (let [cur-rank (dec (first @rslts))]
+              (swap! rslts
+                     conj (inc (find-rank cur-rank
+                                          (drop cur-rank unique-scores)
+                                          -1
+                                          a)))))
+          (reverse alice))
+    (drop-last 1 @rslts)))
+
 ;; terminated due to timeout on tests-6/7/8/9
 ;; why: w/o `into #{}`, the list is too long to peruse
-(defn climbingLeaderboard [scores alice]
+(defn climbingLeaderboard-3 [scores alice]
   (let [find-rank (fn [rank arr curr a]
                     (cond
                       (= curr (first arr)) (recur rank (rest arr) curr a)
